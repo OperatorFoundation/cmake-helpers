@@ -1,6 +1,7 @@
 #
 # ArduinoSDK.cmake
-# Helper functions for linking Arduino SDK headers to CMake targets
+# Helper functions for adding Arduino SDK include paths for IDE support only
+# Does NOT compile anything - that's handled by arduino-cli
 # Supports: ESP32, RP2040, Teensy
 #
 
@@ -32,148 +33,80 @@ function(_find_latest_version package_path out_var)
     set(${out_var} ${latest} PARENT_SCOPE)
 endfunction()
 
-# Configure ESP32 SDK
+# Recursively add all subdirectories that contain header files
+function(_add_recursive_includes target_name base_path)
+    if(IS_DIRECTORY ${base_path})
+        file(GLOB_RECURSE header_files "${base_path}/*.h" "${base_path}/*.hpp")
+        if(header_files)
+            # Get unique directories containing headers
+            set(include_dirs "")
+            foreach(header ${header_files})
+                get_filename_component(dir ${header} DIRECTORY)
+                list(APPEND include_dirs ${dir})
+            endforeach()
+            list(REMOVE_DUPLICATES include_dirs)
+            
+            # Add all directories to include path
+            foreach(dir ${include_dirs})
+                target_include_directories(${target_name} SYSTEM PRIVATE ${dir})
+            endforeach()
+        endif()
+    endif()
+endfunction()
+
+# Configure ESP32 SDK includes
 function(_configure_esp32_sdk target_name sdk_path)
-    message(STATUS "Configuring ESP32 SDK for ${target_name}")
+    message(STATUS "Adding ESP32 SDK includes for ${target_name} (IDE support only)")
     message(STATUS "  SDK path: ${sdk_path}")
     
-    # Core includes
-    target_include_directories(${target_name} PRIVATE
-        ${sdk_path}/cores/esp32
-    )
+    # Add cores
+    _add_recursive_includes(${target_name} "${sdk_path}/cores/esp32")
     
-    # Common libraries
-    set(esp32_libraries
-        Wire
-        SPI
-        SD
-        FS
-        SPIFFS
-        WiFi
-        HTTPClient
-        WebServer
-        ESPmDNS
-        Update
-        Preferences
-    )
+    # Add all libraries
+    _add_recursive_includes(${target_name} "${sdk_path}/libraries")
     
-    foreach(lib ${esp32_libraries})
-        if(EXISTS "${sdk_path}/libraries/${lib}/src")
-            target_include_directories(${target_name} PRIVATE
-                ${sdk_path}/libraries/${lib}/src
-            )
-            message(STATUS "  Added library: ${lib}")
-        endif()
-    endforeach()
+    # Add ESP32 toolchain includes (for soc/soc_caps.h, etc.)
+    _add_recursive_includes(${target_name} "${sdk_path}/tools/sdk/esp32s3/include")
+    _add_recursive_includes(${target_name} "${sdk_path}/tools/sdk/esp32/include")
+    _add_recursive_includes(${target_name} "${sdk_path}/tools/sdk/esp32c3/include")
+    _add_recursive_includes(${target_name} "${sdk_path}/tools/sdk/esp32c6/include")
+    _add_recursive_includes(${target_name} "${sdk_path}/tools/sdk/esp32h2/include")
     
-    # Toolchain-specific includes for ESP32-S3
-    if(EXISTS "${sdk_path}/tools/sdk/esp32s3/include")
-        file(GLOB esp32s3_includes "${sdk_path}/tools/sdk/esp32s3/include/*")
-        foreach(inc ${esp32s3_includes})
-            if(IS_DIRECTORY ${inc})
-                target_include_directories(${target_name} PRIVATE ${inc})
-            endif()
-        endforeach()
-    endif()
-    
-    # Toolchain-specific includes for ESP32
-    if(EXISTS "${sdk_path}/tools/sdk/esp32/include")
-        file(GLOB esp32_includes "${sdk_path}/tools/sdk/esp32/include/*")
-        foreach(inc ${esp32_includes})
-            if(IS_DIRECTORY ${inc})
-                target_include_directories(${target_name} PRIVATE ${inc})
-            endif()
-        endforeach()
-    endif()
+    message(STATUS "  ESP32 includes added")
 endfunction()
 
-# Configure RP2040 SDK
+# Configure RP2040 SDK includes
 function(_configure_rp2040_sdk target_name sdk_path)
-    message(STATUS "Configuring RP2040 SDK for ${target_name}")
+    message(STATUS "Adding RP2040 SDK includes for ${target_name} (IDE support only)")
     message(STATUS "  SDK path: ${sdk_path}")
     
-    # Core includes
-    target_include_directories(${target_name} PRIVATE
-        ${sdk_path}/cores/rp2040
-    )
+    # Add cores
+    _add_recursive_includes(${target_name} "${sdk_path}/cores/rp2040")
     
-    # Common libraries
-    set(rp2040_libraries
-        Wire
-        SPI
-        SD
-        SDFS
-        LittleFS
-        WiFi
-        HTTPClient
-        WebServer
-        lwIP_Ethernet
-        lwIP_w5500
-        lwIP_w5100
-    )
+    # Add all libraries
+    _add_recursive_includes(${target_name} "${sdk_path}/libraries")
     
-    foreach(lib ${rp2040_libraries})
-        if(EXISTS "${sdk_path}/libraries/${lib}/src")
-            target_include_directories(${target_name} PRIVATE
-                ${sdk_path}/libraries/${lib}/src
-            )
-            message(STATUS "  Added library: ${lib}")
-        elseif(EXISTS "${sdk_path}/libraries/${lib}")
-            target_include_directories(${target_name} PRIVATE
-                ${sdk_path}/libraries/${lib}
-            )
-            message(STATUS "  Added library: ${lib}")
-        endif()
-    endforeach()
+    # Add Pico SDK if available
+    _add_recursive_includes(${target_name} "${sdk_path}/pico-sdk")
     
-    # Pico SDK includes if available
-    if(EXISTS "${sdk_path}/pico-sdk/src/common/pico_base/include")
-        target_include_directories(${target_name} PRIVATE
-            ${sdk_path}/pico-sdk/src/common/pico_base/include
-        )
-    endif()
+    message(STATUS "  RP2040 includes added")
 endfunction()
 
-# Configure Teensy SDK
+# Configure Teensy SDK includes
 function(_configure_teensy_sdk target_name sdk_path)
-    message(STATUS "Configuring Teensy SDK for ${target_name}")
+    message(STATUS "Adding Teensy SDK includes for ${target_name} (IDE support only)")
     message(STATUS "  SDK path: ${sdk_path}")
     
-    # Core includes
-    target_include_directories(${target_name} PRIVATE
-        ${sdk_path}/cores/teensy4
-        ${sdk_path}/cores/teensy3
-    )
+    # Add cores
+    _add_recursive_includes(${target_name} "${sdk_path}/cores")
     
-    # Common libraries
-    set(teensy_libraries
-        Wire
-        SPI
-        SD
-        SerialFlash
-        Audio
-        Ethernet
-        NativeEthernet
-        USBHost_t36
-        TimeLib
-    )
+    # Add all libraries
+    _add_recursive_includes(${target_name} "${sdk_path}/libraries")
     
-    foreach(lib ${teensy_libraries})
-        if(EXISTS "${sdk_path}/libraries/${lib}/src")
-            target_include_directories(${target_name} PRIVATE
-                ${sdk_path}/libraries/${lib}/src
-            )
-            message(STATUS "  Added library: ${lib}")
-        elseif(EXISTS "${sdk_path}/libraries/${lib}")
-            target_include_directories(${target_name} PRIVATE
-                ${sdk_path}/libraries/${lib}
-            )
-            message(STATUS "  Added library: ${lib}")
-        endif()
-    endforeach()
+    message(STATUS "  Teensy includes added")
 endfunction()
 
-# Main function: Link Arduino SDK to a target
+# Main function: Add Arduino SDK include paths to a target (for IDE support only)
 # Usage: target_link_arduino_sdk(target_name PROCESSOR)
 # Supported processors: ESP32, ESP32S3, RP2040, TEENSY, TEENSY40, TEENSY41
 function(target_link_arduino_sdk target_name processor)
@@ -214,7 +147,7 @@ function(target_link_arduino_sdk target_name processor)
         ARDUINO_PROCESSOR_FAMILY ${processor_family}
     )
     
-    message(STATUS "Successfully configured Arduino SDK for ${target_name} (${processor})")
+    message(STATUS "Successfully added Arduino SDK includes for ${target_name} (${processor})")
 endfunction()
 
 # Optional: Add a specific Arduino library to a target
@@ -226,17 +159,10 @@ function(target_link_arduino_library target_name library_name)
         message(FATAL_ERROR "Target ${target_name} does not have Arduino SDK configured. Call target_link_arduino_sdk first.")
     endif()
     
-    # Try /src subdirectory first, then library root
-    if(EXISTS "${sdk_path}/libraries/${library_name}/src")
-        target_include_directories(${target_name} PRIVATE
-            ${sdk_path}/libraries/${library_name}/src
-        )
-        message(STATUS "Added Arduino library to ${target_name}: ${library_name}")
-    elseif(EXISTS "${sdk_path}/libraries/${library_name}")
-        target_include_directories(${target_name} PRIVATE
-            ${sdk_path}/libraries/${library_name}
-        )
-        message(STATUS "Added Arduino library to ${target_name}: ${library_name}")
+    # Add library includes recursively
+    if(EXISTS "${sdk_path}/libraries/${library_name}")
+        _add_recursive_includes(${target_name} "${sdk_path}/libraries/${library_name}")
+        message(STATUS "Added Arduino library includes to ${target_name}: ${library_name}")
     else()
         message(WARNING "Arduino library not found: ${library_name}")
     endif()
