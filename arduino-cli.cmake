@@ -15,7 +15,6 @@ function(command_exists COMMAND RESULT_VAR)
       ERROR_QUIET
     )
   endif()
-
   if(EXIT_CODE EQUAL 0)
     set(${RESULT_VAR} TRUE PARENT_SCOPE)
   else()
@@ -23,52 +22,82 @@ function(command_exists COMMAND RESULT_VAR)
   endif()
 endfunction()
 
-# Check if homebrew is installed
-command_exists(brew HOMEBREW_FOUND)
-
-if(NOT HOMEBREW_FOUND)
-  message(FATAL_ERROR "Homebrew is not installed. Please install Homebrew first from https://brew.sh")
+# Detect OS
+if(APPLE)
+  set(OS_IS_MACOS TRUE)
+elseif(UNIX AND NOT APPLE)
+  set(OS_IS_LINUX TRUE)
 endif()
 
 # Check if arduino-cli is installed
 command_exists(arduino-cli ARDUINO_CLI_FOUND)
 
 if(NOT ARDUINO_CLI_FOUND)
-  message(STATUS "arduino-cli not found. Installing via Homebrew...")
-  execute_process(
-    COMMAND brew install arduino-cli
-    RESULT_VARIABLE INSTALL_RESULT
-    OUTPUT_VARIABLE INSTALL_OUTPUT
-    ERROR_VARIABLE INSTALL_ERROR
-  )
-
-  if(NOT INSTALL_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to install arduino-cli: ${INSTALL_ERROR}")
+  message(STATUS "arduino-cli not found. Installing...")
+  
+  if(OS_IS_MACOS)
+    # Check if homebrew is installed on macOS
+    command_exists(brew HOMEBREW_FOUND)
+    if(NOT HOMEBREW_FOUND)
+      message(FATAL_ERROR "Homebrew is not installed. Please install Homebrew first from https://brew.sh")
+    endif()
+    
+    # Install via Homebrew
+    execute_process(
+      COMMAND brew install arduino-cli
+      RESULT_VARIABLE INSTALL_RESULT
+      OUTPUT_VARIABLE INSTALL_OUTPUT
+      ERROR_VARIABLE INSTALL_ERROR
+    )
+    if(NOT INSTALL_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to install arduino-cli: ${INSTALL_ERROR}")
+    else()
+      message(STATUS "arduino-cli installed successfully via Homebrew")
+    endif()
+    
+  elseif(OS_IS_LINUX)
+    # Install via official installer script on Linux
+    message(STATUS "Installing arduino-cli via official installer script...")
+    execute_process(
+      COMMAND curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh
+      COMMAND sh
+      RESULT_VARIABLE INSTALL_RESULT
+      OUTPUT_VARIABLE INSTALL_OUTPUT
+      ERROR_VARIABLE INSTALL_ERROR
+    )
+    if(NOT INSTALL_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to install arduino-cli: ${INSTALL_ERROR}")
+    else()
+      message(STATUS "arduino-cli installed successfully")
+      # The script installs to ~/bin by default, add a note
+      message(STATUS "arduino-cli installed to ~/bin - ensure this is in your PATH")
+    endif()
+    
   else()
-    message(STATUS "arduino-cli installed successfully")
+    message(FATAL_ERROR "Unsupported operating system for automatic arduino-cli installation")
   endif()
-
+  
   # Only do initial setup after fresh install
   execute_process(
     COMMAND arduino-cli config init
     OUTPUT_QUIET
     ERROR_QUIET
   )
-
+  
   # ESP32 official URL
   execute_process(
     COMMAND arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
     OUTPUT_QUIET
     ERROR_QUIET
   )
-
+  
   # Adafruit board manager URL
   execute_process(
     COMMAND arduino-cli config add board_manager.additional_urls https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
     OUTPUT_QUIET
     ERROR_QUIET
   )
-
+  
   # Update the core index only after fresh install
   message(STATUS "Updating arduino-cli core index...")
   execute_process(
