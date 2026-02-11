@@ -20,28 +20,39 @@ endif()
 FetchContent_Declare(openocd_esp32
     URL "https://github.com/espressif/openocd-esp32/releases/download/${OPENOCD_ESP32_TAG}/${OPENOCD_ARCHIVE}"
 )
-
 FetchContent_MakeAvailable(openocd_esp32)
-set(OPENOCD_ESP32_BIN "${openocd_esp32_SOURCE_DIR}/bin/openocd" CACHE INTERNAL "")
-set(OPENOCD_ESP32_SCRIPTS "${openocd_esp32_SOURCE_DIR}/share/openocd/scripts" CACHE INTERNAL "")
 
-function(add_jtag_debug_config)
-    cmake_parse_arguments(ARG "" "NAME;ELF;OPENOCD;BOARD_CFG;PORT" "" ${ARGN})
+# Find GDB from Arduino toolchain
+file(GLOB GDB_SEARCH "$ENV{HOME}/Library/Arduino15/packages/esp32/tools/xtensa-esp-elf-gdb/*/bin/xtensa-esp32s3-elf-gdb")
+if(GDB_SEARCH)
+    list(SORT GDB_SEARCH ORDER DESCENDING)
+    list(GET GDB_SEARCH 0 ESP32S3_GDB)
+else()
+    find_program(ESP32S3_GDB xtensa-esp32s3-elf-gdb)
+endif()
+
+function(add_openocd_debug_config)
+    cmake_parse_arguments(ARG "" "NAME;TARGET;ELF;BOARD_CFG;GDB" "" ${ARGN})
 
     if(NOT ARG_NAME)
-        set(ARG_NAME "Debug JTAG")
+        set(ARG_NAME "OpenOCD Debug")
     endif()
-    if(NOT ARG_OPENOCD)
-        set(ARG_OPENOCD "openocd")
+    if(NOT ARG_TARGET)
+        set(ARG_TARGET "build_eden-horizon")
     endif()
     if(NOT ARG_BOARD_CFG)
-        set(ARG_BOARD_CFG "board/esp32s3-builtin.cfg")
+        set(ARG_BOARD_CFG "${openocd_esp32_SOURCE_DIR}/share/openocd/scripts/board/esp32s3-builtin.cfg")
     endif()
-    if(NOT ARG_PORT)
-        set(ARG_PORT "3333")
+    if(NOT ARG_GDB)
+        set(ARG_GDB "${ESP32S3_GDB}")
     endif()
 
-    # Sanitize name for filename
+    # Make paths relative to project dir for portability
+    string(REPLACE "${CMAKE_SOURCE_DIR}" "\$PROJECT_DIR\$" REL_ELF "${ARG_ELF}")
+    string(REPLACE "${CMAKE_SOURCE_DIR}" "\$PROJECT_DIR\$" REL_BOARD_CFG "${ARG_BOARD_CFG}")
+    # GDB is outside project, make relative to project parent
+    string(REPLACE "$ENV{HOME}" "\$PROJECT_DIR\$/.." REL_GDB "${ARG_GDB}")
+
     string(REPLACE " " "_" CONFIG_FILENAME "${ARG_NAME}")
 
     set(RUN_CONFIG_DIR "${CMAKE_SOURCE_DIR}/.idea/runConfigurations")
@@ -49,22 +60,16 @@ function(add_jtag_debug_config)
 
     file(WRITE "${RUN_CONFIG_DIR}/${CONFIG_FILENAME}.xml"
 "<component name=\"ProjectRunConfigurationManager\">
-  <configuration default=\"false\" name=\"${ARG_NAME}\" type=\"com.jetbrains.cidr.embedded.customGDBServer.CPPEnvironmentCustomGDBServerRunConfigurationType\" factoryName=\"com.jetbrains.cidr.embedded.customGDBServer.CPPEnvironmentCustomGDBServerRunConfigurationFactory\">
-    <GDB_SERVER_SETTINGS>
-      <option name=\"executablePath\" value=\"${ARG_ELF}\" />
-      <option name=\"gdbServerPath\" value=\"${ARG_OPENOCD}\" />
-      <option name=\"gdbServerArgs\" value=\"-f ${ARG_BOARD_CFG}\" />
-      <option name=\"gdbServerPort\" value=\"${ARG_PORT}\" />
-      <option name=\"autoStartServer\" value=\"true\" />
-    </GDB_SERVER_SETTINGS>
-    <GDB_STARTUP_COMMANDS>set remote hardware-watchpoint-limit 2
-set remote hardware-breakpoint-limit 2
-mon reset halt
-flushregs</GDB_STARTUP_COMMANDS>
-    <method v=\"2\" />
+  <configuration default=\"false\" name=\"${ARG_NAME}\" type=\"com.jetbrains.cidr.embedded.openocd.conf.type\" factoryName=\"com.jetbrains.cidr.embedded.openocd.conf.factory\" REDIRECT_INPUT=\"false\" ELEVATE=\"false\" USE_EXTERNAL_CONSOLE=\"false\" EMULATE_TERMINAL=\"false\" PASS_PARENT_ENVS_2=\"true\" PROJECT_NAME=\"eden\" TARGET_NAME=\"${ARG_TARGET}\" CONFIG_NAME=\"Debug\" version=\"1\" RUN_PATH=\"${REL_ELF}\">
+    <openocd version=\"1\" gdb-port=\"3333\" telnet-port=\"4444\" board-config=\"${REL_BOARD_CFG}\" reset-type=\"INIT\" download-type=\"UPDATED_ONLY\">
+      <debugger kind=\"GDB\">${REL_GDB}</debugger>
+    </openocd>
+    <method v=\"2\">
+      <option name=\"CLION.COMPOUND.BUILD\" enabled=\"true\" />
+    </method>
   </configuration>
 </component>
 ")
 
-    message(STATUS "Generated CLion JTAG debug config: ${ARG_NAME}")
+    message(STATUS "Generated CLion OpenOCD debug config: ${ARG_NAME}")
 endfunction()
