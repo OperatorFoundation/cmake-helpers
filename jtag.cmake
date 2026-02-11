@@ -1,23 +1,20 @@
-include(FetchContent)
-
-set(OPENOCD_ESP32_VERSION "v0.12.0-esp32-20230921")
+set(OPENOCD_ESP32_VERSION "0.12.0-esp32-20251215")
+set(OPENOCD_ESP32_TAG "v${OPENOCD_ESP32_VERSION}")
 
 if(APPLE)
     if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-        set(OPENOCD_ARCHIVE "openocd-esp32-macos-arm64.tar.gz")
+        set(OPENOCD_ARCHIVE "openocd-esp32-macos-arm64-${OPENOCD_ESP32_VERSION}.tar.gz")
     else()
-        set(OPENOCD_ARCHIVE "openocd-esp32-macos-amd64.tar.gz")
+        set(OPENOCD_ARCHIVE "openocd-esp32-macos-${OPENOCD_ESP32_VERSION}.tar.gz")
     endif()
 elseif(UNIX)
-    set(OPENOCD_ARCHIVE "openocd-esp32-linux-amd64.tar.gz")
-endif()
-
-FetchContent_Declare(openocd_esp32
-    URL "https://github.com/espressif/openocd-esp32/releases/download/${OPENOCD_ESP32_VERSION}/${OPENOCD_ARCHIVE}"
-)
-FetchContent_MakeAvailable(openocd_esp32)
-
-set(OPENOCD_ESP32 "${openocd_esp32_SOURCE_DIR}/bin/openocd")
+    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(OPENOCD_ARCHIVE "openocd-esp32-linux-arm64-${OPENOCD_ESP32_VERSION}.tar.gz")
+    else()
+        set(OPENOCD_ARCHIVE "openocd-esp32-linux-amd64-${OPENOCD_ESP32_VERSION}.tar.gz")
+    endif()
+elseif(WIN32)
+    set(OPENOCD_ARCHIVE "openocd-esp32-win64-${OPENOCD_ESP
 
 function(add_jtag_debug_config)
     cmake_parse_arguments(ARG "" "NAME;ELF;OPENOCD;BOARD_CFG;PORT" "" ${ARGN})
