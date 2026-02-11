@@ -1,3 +1,5 @@
+include(FetchContent)
+
 set(OPENOCD_ESP32_VERSION "0.12.0-esp32-20251215")
 set(OPENOCD_ESP32_TAG "v${OPENOCD_ESP32_VERSION}")
 
