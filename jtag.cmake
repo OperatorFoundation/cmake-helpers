@@ -21,6 +21,10 @@ FetchContent_Declare(openocd_esp32
     URL "https://github.com/espressif/openocd-esp32/releases/download/${OPENOCD_ESP32_TAG}/${OPENOCD_ARCHIVE}"
 )
 
+FetchContent_MakeAvailable(openocd_esp32)
+set(OPENOCD_ESP32_BIN "${openocd_esp32_SOURCE_DIR}/bin/openocd" CACHE INTERNAL "")
+set(OPENOCD_ESP32_SCRIPTS "${openocd_esp32_SOURCE_DIR}/share/openocd/scripts" CACHE INTERNAL "")
+
 function(add_jtag_debug_config)
     cmake_parse_arguments(ARG "" "NAME;ELF;OPENOCD;BOARD_CFG;PORT" "" ${ARGN})
 
