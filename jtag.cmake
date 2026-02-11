@@ -13,8 +13,11 @@ elseif(UNIX)
     else()
         set(OPENOCD_ARCHIVE "openocd-esp32-linux-amd64-${OPENOCD_ESP32_VERSION}.tar.gz")
     endif()
-elseif(WIN32)
-    set(OPENOCD_ARCHIVE "openocd-esp32-win64-${OPENOCD_ESP
+endif()
+
+FetchContent_Declare(openocd_esp32
+    URL "https://github.com/espressif/openocd-esp32/releases/download/${OPENOCD_ESP32_TAG}/${OPENOCD_ARCHIVE}"
+)
 
 function(add_jtag_debug_config)
     cmake_parse_arguments(ARG "" "NAME;ELF;OPENOCD;BOARD_CFG;PORT" "" ${ARGN})
