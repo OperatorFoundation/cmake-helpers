@@ -32,7 +32,7 @@ else()
 endif()
 
 function(add_openocd_debug_config)
-    cmake_parse_arguments(ARG "" "NAME;TARGET;ELF;BOARD_CFG;GDB" "" ${ARGN})
+    cmake_parse_arguments(ARG "" "NAME;TARGET;ELF;BOARD_CFG;GDB;RESET_TYPE;DOWNLOAD_TYPE" "" ${ARGN})
 
     if(NOT ARG_NAME)
         set(ARG_NAME "OpenOCD Debug")
@@ -45,6 +45,12 @@ function(add_openocd_debug_config)
     endif()
     if(NOT ARG_GDB)
         set(ARG_GDB "${ESP32S3_GDB}")
+    endif()
+    if(NOT ARG_RESET_TYPE)
+        set(ARG_RESET_TYPE "HALT")
+    endif()
+    if(NOT ARG_DOWNLOAD_TYPE)
+        set(ARG_DOWNLOAD_TYPE "NEVER")
     endif()
 
     # Make paths relative to project dir for portability
@@ -61,7 +67,7 @@ function(add_openocd_debug_config)
     file(WRITE "${RUN_CONFIG_DIR}/${CONFIG_FILENAME}.xml"
 "<component name=\"ProjectRunConfigurationManager\">
   <configuration default=\"false\" name=\"${ARG_NAME}\" type=\"com.jetbrains.cidr.embedded.openocd.conf.type\" factoryName=\"com.jetbrains.cidr.embedded.openocd.conf.factory\" REDIRECT_INPUT=\"false\" ELEVATE=\"false\" USE_EXTERNAL_CONSOLE=\"false\" EMULATE_TERMINAL=\"false\" PASS_PARENT_ENVS_2=\"true\" PROJECT_NAME=\"eden\" TARGET_NAME=\"${ARG_TARGET}\" CONFIG_NAME=\"Debug\" version=\"1\" RUN_PATH=\"${REL_ELF}\">
-    <openocd version=\"1\" gdb-port=\"3333\" telnet-port=\"4444\" board-config=\"${REL_BOARD_CFG}\" reset-type=\"INIT\" download-type=\"UPDATED_ONLY\">
+    <openocd version=\"1\" gdb-port=\"3333\" telnet-port=\"4444\" board-config=\"${REL_BOARD_CFG}\" reset-type=\"${ARG_RESET_TYPE}\" download-type=\"${ARG_DOWNLOAD_TYPE}\">
       <debugger kind=\"GDB\">${REL_GDB}</debugger>
     </openocd>
     <method v=\"2\">
